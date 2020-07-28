@@ -20,16 +20,23 @@ namespace Zocket
                 new Option<int>(
                     "--port",
                     getDefaultValue: () => 9999,
-                    description: "Port to bind to")
+                    description: "Port to bind to"),
+                new Argument<string>(
+                    "command",
+                    getDefaultValue: () => "dotnet watch run",
+                    description: "The command to execute with zocket"
+                    )
             };
             rootCommand.Description = "zocket";
-            rootCommand.Handler = CommandHandler.Create<int>(Listen);
+            rootCommand.Handler = CommandHandler.Create<int, string>(Listen);
 
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        private static void Listen(int port)
+        private static void Listen(int port, string command)
         {
+            
+
             var exitEvent = new ManualResetEvent(false);
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e)
             {
@@ -42,9 +49,13 @@ namespace Zocket
                                                 ProtocolType.Tcp);
             listenSocket.Bind(ipEndPoint);
             var duplicatedSocket = listenSocket.DuplicateSocket();
-
-            var psi = new ProcessStartInfo("dotnet", "watch run");
-
+            var parsedCommand = command.Split(' ', 2);
+            ProcessStartInfo psi = parsedCommand.Length switch
+            {
+                1 => new ProcessStartInfo(parsedCommand[0]),
+                2 => new ProcessStartInfo(parsedCommand[0], parsedCommand[1]),
+                _ => throw new ArgumentException(),
+            };
 
             var currentAssembly = Assembly.GetExecutingAssembly().Location;
             var reloadIntegrationPath = Path.GetFullPath(Path.Combine(currentAssembly, "..", "ReloadIntegration.dll"));
