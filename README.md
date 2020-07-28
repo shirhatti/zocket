@@ -13,6 +13,12 @@ $ uname -a
 Linux DESKTOP-OVRUHKP 4.19.84-microsoft-standard #1 SMP Wed Nov 13 11:44:37 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
 ```
 
+## Installation
+
+```
+dotnet tool install --global zocket --version "0.1.0-*"
+```
+
 ## Usage
 
 ```
@@ -26,6 +32,12 @@ Options:
   --port <port>     Port to bind to [default: 9999]
   --version         Show version information
   -?, -h, --help    Show help and usage information
+  
+  Examples:
+  
+  zocket
+  zocket --port 9999 "dotnet run"
+  zocket --port 9999 "dotnet watch run"
   ```
   
   ## Third party licenses
