@@ -26,7 +26,7 @@ namespace Zocket
                     description: "Port to bind to"),
                 new Argument<string>(
                     "command",
-                    getDefaultValue: () => @"dotnet run --project C:\Users\jukotali\code\test\WebApp\WebApp.csproj",
+                    getDefaultValue: () => "dotnet watch run",
                     description: "The command to execute with zocket"
                     )
             };
@@ -131,9 +131,9 @@ namespace Zocket
                         PipeOptions.Asynchronous);
                     await namedPipeServer.WaitForConnectionAsync(cancellationTokenSource.Token);
 
-                    var res = new byte[100];
-                    var length = await namedPipeServer.ReadAsync(res, cancellationTokenSource.Token);
-                    var pid = BitConverter.ToInt32(new Memory<byte>(res).Slice(0, length).ToArray());
+                    var buffer = new byte[16]; // Only need enough for the length of a PID, 16 should be plenty
+                    var length = await namedPipeServer.ReadAsync(buffer, cancellationTokenSource.Token);
+                    var pid = BitConverter.ToInt32(new ReadOnlySpan<byte>(buffer).Slice(0, length));
 
                     // TODO how can we pass this info into other transports (QUIC) s.t. it duplicates rather than creates?
 
@@ -144,8 +144,10 @@ namespace Zocket
 
                     await backendProcess.WaitForExitAsync(cancellationTokenSource.Token);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
+                    // Ignore exceptions for now.
+                    // TODO enable a debug log mode.
                     break;
                 }
             }
