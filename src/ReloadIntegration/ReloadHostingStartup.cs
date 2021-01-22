@@ -1,8 +1,11 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -44,6 +47,19 @@ namespace ReloadIntegration
 
                 // We do this to prevent leaking a socket
                 fcntl(Convert.ToInt32(listenFd), F_SETFD, FD_CLOEXEC);
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                var val = (byte[])Registry.CurrentUser.GetValue("zockettestname");
+                var socketInfo = new SocketInformation()
+                { ProtocolInformation = val };
+
+                var socket = new Socket(socketInfo);
+                builder.ConfigureKestrel(options =>
+                {
+                    options.ListenHandle((uint)socket.Handle);
+                });
+                
             }
         }
 

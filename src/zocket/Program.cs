@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Diagnostics;
@@ -23,7 +24,7 @@ namespace Zocket
                     description: "Port to bind to"),
                 new Argument<string>(
                     "command",
-                    getDefaultValue: () => "dotnet watch run",
+                    getDefaultValue: () => @"dotnet run --project C:\Users\jukotali\code\test\WebApp\WebApp.csproj",
                     description: "The command to execute with zocket"
                     )
             };
@@ -35,20 +36,13 @@ namespace Zocket
 
         private static void Listen(int port, string command)
         {
-            
-
             var exitEvent = new ManualResetEvent(false);
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e)
             {
                 e.Cancel = true;
                 exitEvent.Set();
             };
-            var ipEndPoint = new IPEndPoint(IPAddress.Loopback, port);
-            using var listenSocket = new Socket(ipEndPoint.AddressFamily,
-                                                SocketType.Stream,
-                                                ProtocolType.Tcp);
-            listenSocket.Bind(ipEndPoint);
-            var duplicatedSocket = listenSocket.DuplicateSocket();
+
             var parsedCommand = command.Split(' ', 2);
             ProcessStartInfo psi = parsedCommand.Length switch
             {
@@ -60,14 +54,44 @@ namespace Zocket
             var currentAssembly = Assembly.GetExecutingAssembly().Location;
             var reloadIntegrationPath = Path.GetFullPath(Path.Combine(currentAssembly, "..", "ReloadIntegration.dll"));
 
-            psi.EnvironmentVariables["ZOCKET_LISTEN_FD"] = duplicatedSocket.DangerousGetHandle().ToInt32().ToString();
+            //psi.EnvironmentVariables["ZOCKET_LISTEN_FD"] = duplicatedSocket.DangerousGetHandle().ToInt32().ToString();
             psi.EnvironmentVariables["DOTNET_STARTUP_HOOKS"] = reloadIntegrationPath;
             psi.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "ReloadIntegration";
 
             var process = Process.Start(psi);
+
+            // need event to get pid value.
+
+            // Wait for Event (for pid)
+
+            // read reg key for pid
+
+            // Set event
+
+            // set reg key with file descriptor or info needed to get socket.
+            int id = -1;
+            while (true)
+            {
+                var processId = (int?)Registry.CurrentUser.GetValue("zocketprocessid2");
+                if (processId != null)
+                {
+                    id = processId.Value;
+                    break;
+                }
+            }
+
+            var ipEndPoint = new IPEndPoint(IPAddress.Loopback, port);
+            using var listenSocket = new Socket(ipEndPoint.AddressFamily,
+                                                SocketType.Stream,
+                                                ProtocolType.Tcp);
+            listenSocket.Bind(ipEndPoint);
+            var socketInfo = listenSocket.DuplicateSocketWindows(process.Id);
+
+            // How to set reg key with this info.
+            Registry.CurrentUser.SetValue("zockettestname", socketInfo.ProtocolInformation);
             exitEvent.WaitOne();
 
-            process.Terminate();
+            process.Kill();
         }
     }
 }
