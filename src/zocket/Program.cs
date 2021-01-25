@@ -75,8 +75,10 @@ namespace Zocket
             var reloadIntegrationPath = Path.GetFullPath(Path.Combine(currentAssembly, "..", "ReloadIntegration.dll"));
 
             psi.EnvironmentVariables["ZOCKET_LISTEN_FD"] = duplicatedSocket.DangerousGetHandle().ToInt32().ToString();
-            psi.EnvironmentVariables["DOTNET_STARTUP_HOOKS"] = reloadIntegrationPath;
-            psi.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "ReloadIntegration";
+            const string dotnetStartHooksName = "DOTNET_STARTUP_HOOKS";
+            psi.EnvironmentVariables[dotnetStartHooksName] = AddOrAppend(dotnetStartHooksName, reloadIntegrationPath, Path.PathSeparator);
+            const string hostingStartupAssembliesName = "ASPNETCORE_HOSTINGSTARTUPASSEMBLIES";
+            psi.EnvironmentVariables[hostingStartupAssembliesName] = AddOrAppend(hostingStartupAssembliesName, "ReloadIntegration", ';');
 
             var process = Process.Start(psi);
             exitEvent.WaitOne();
@@ -106,9 +108,11 @@ namespace Zocket
             var reloadIntegrationPath = Path.GetFullPath(Path.Combine(currentAssembly, "..", "ReloadIntegration.dll"));
 
             using var listenSocket = SetupSocket(port);
-
-            psi.EnvironmentVariables["DOTNET_STARTUP_HOOKS"] = reloadIntegrationPath;
-            psi.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "ReloadIntegration";
+            
+            const string dotnetStartHooksName = "DOTNET_STARTUP_HOOKS";
+            psi.EnvironmentVariables[dotnetStartHooksName] = AddOrAppend(dotnetStartHooksName, reloadIntegrationPath, Path.PathSeparator);
+            const string hostingStartupAssembliesName = "ASPNETCORE_HOSTINGSTARTUPASSEMBLIES";
+            psi.EnvironmentVariables[hostingStartupAssembliesName] = AddOrAppend(hostingStartupAssembliesName, "ReloadIntegration", ';');
             var pipeName = Guid.NewGuid().ToString();
             psi.EnvironmentVariables["ZOCKET_PIPE_NAME"] = pipeName;
             using var initialProcess = Process.Start(psi);
@@ -171,6 +175,20 @@ namespace Zocket
             listenSocket.Bind(ipEndPoint);
             listenSocket.Listen();
             return listenSocket;
+        }
+        
+        private string AddOrAppend(string envVarName, string envVarValue, char separator)
+        {
+            var existing = Environment.GetEnvironmentVariable(envVarName);
+
+            if (!string.IsNullOrEmpty(existing))
+            {
+                return $"{existing}{separator}{envVarValue}";
+            }
+            else
+            {
+                return envVarValue;
+            }
         }
     }
 }
