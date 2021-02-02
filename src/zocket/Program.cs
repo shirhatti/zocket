@@ -177,7 +177,7 @@ namespace Zocket
             return listenSocket;
         }
         
-        private string AddOrAppend(string envVarName, string envVarValue, char separator)
+        private static string AddOrAppend(string envVarName, string envVarValue, char separator)
         {
             var existing = Environment.GetEnvironmentVariable(envVarName);
 
