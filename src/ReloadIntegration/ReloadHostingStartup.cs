@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Hosting;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.DependencyInjection;
 using static Tmds.Linux.LibC;
 
 [assembly: HostingStartup(typeof(ReloadIntegration.ReloadHostingStartup))]
@@ -13,6 +15,7 @@ namespace ReloadIntegration
 {
     public class ReloadHostingStartup : IHostingStartup
     {
+        internal const string AspNetHttpsOid = "1.3.6.1.4.1.311.84.1.1";
         public const string startupHookEnvironmentVariable = "DOTNET_STARTUP_HOOKS";
         public void Configure(IWebHostBuilder builder)
         {
@@ -29,12 +32,12 @@ namespace ReloadIntegration
                 {
                     listenHttpFd = uint.Parse(Environment.GetEnvironmentVariable("ZOCKET_LISTEN_HTTP_FD"));
                     listenHttpsFd = uint.Parse(Environment.GetEnvironmentVariable("ZOCKET_LISTEN_HTTPS_FD"));
-                    builder.ConfigureKestrel(options =>
+                    builder.ConfigureServices(services =>
                     {
-                        options.ListenHandle(listenHttpFd);
-                        options.ListenHandle(listenHttpsFd, options =>
+                        services.PostConfigure<KestrelServerOptions>(options =>
                         {
-                            options.UseHttps();
+                            options.ListenHandle(listenHttpFd);
+                            options.ListenHandle(listenHttpsFd, options => options.UseHttps());
                         });
                     });
                 }
@@ -59,18 +62,36 @@ namespace ReloadIntegration
 
                 // ProtocolInformation is usually ~630 bytes. TODO may need a read loop here to make sure we have all bytes
                 var buffer = new byte[1024];
-                var length = namedPipeServer.Read(buffer);
 
+                // Read size, then read SocketInfo
+                var length = namedPipeServer.Read(buffer, 0, sizeof(int));
+                var socketInfoLength = BitConverter.ToInt32(buffer, 0);
+                length = namedPipeServer.Read(buffer, 0, socketInfoLength);
                 var socketInfo = new SocketInformation()
                 {
                     ProtocolInformation = (new Memory<byte>(buffer).Slice(0, length)).ToArray()
                 };
 
                 // Shouldn't need to dispose of socket as Kestrel will dispose for us?
-                var socket = new Socket(socketInfo);
-                builder.ConfigureKestrel(options =>
+                var httpSocket = new Socket(socketInfo);
+
+                // Repeat for second socketInfo
+                length = namedPipeServer.Read(buffer, 0, sizeof(int));
+                socketInfoLength = BitConverter.ToInt32(buffer, 0);
+                length = namedPipeServer.Read(buffer, 0, socketInfoLength);
+                socketInfo = new SocketInformation()
                 {
-                    options.ListenHandle((uint)socket.Handle);
+                    ProtocolInformation = (new Memory<byte>(buffer).Slice(0, length)).ToArray()
+                };
+                var httpsSocket = new Socket(socketInfo);
+
+                builder.ConfigureServices(services =>
+                {
+                    services.PostConfigure<KestrelServerOptions>(options =>
+                    {
+                        options.ListenHandle((uint)httpSocket.Handle);
+                        options.ListenHandle((uint)httpsSocket.Handle, options => options.UseHttps());
+                    });
                 });
             }
         }

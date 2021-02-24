@@ -130,8 +130,15 @@ namespace Zocket
 
                     // TODO how can we pass this info into other transports (QUIC) s.t. it duplicates rather than creates?
 
-                    var socketInfo = httpListenSocket.DuplicateSocketWindows(pid);
-                    await namedPipeServer.WriteAsync(socketInfo.ProtocolInformation, cts.Token);
+                    // Send http socket
+                    var httpSocketInfo = httpListenSocket.DuplicateSocketWindows(pid);
+                    await namedPipeServer.WriteAsync(BitConverter.GetBytes(httpSocketInfo.ProtocolInformation.Length));
+                    await namedPipeServer.WriteAsync(httpSocketInfo.ProtocolInformation, cts.Token);
+
+                    // Send https socket
+                    var httpsSocketInfo = httpsListenSocket.DuplicateSocketWindows(pid);
+                    await namedPipeServer.WriteAsync(BitConverter.GetBytes(httpsSocketInfo.ProtocolInformation.Length));
+                    await namedPipeServer.WriteAsync(httpsSocketInfo.ProtocolInformation, cts.Token);
 
                     var backendProcess = Process.GetProcessById(pid);
 
