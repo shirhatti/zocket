@@ -22,16 +22,20 @@ namespace ReloadIntegration
             }
             ClearStartupHookEnvironmentVariable();
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                uint listenFd;
+                uint listenHttpFd, listenHttpsFd;
                 try
                 {
-                    var listenFdAsString = Environment.GetEnvironmentVariable("ZOCKET_LISTEN_FD");
-                    listenFd = uint.Parse(listenFdAsString);
+                    listenHttpFd = uint.Parse(Environment.GetEnvironmentVariable("ZOCKET_LISTEN_HTTP_FD"));
+                    listenHttpsFd = uint.Parse(Environment.GetEnvironmentVariable("ZOCKET_LISTEN_HTTPS_FD"));
                     builder.ConfigureKestrel(options =>
                     {
-                        options.ListenHandle(listenFd);
+                        options.ListenHandle(listenHttpFd);
+                        options.ListenHandle(listenHttpsFd, options =>
+                        {
+                            options.UseHttps();
+                        });
                     });
                 }
                 catch (FormatException)
@@ -40,7 +44,9 @@ namespace ReloadIntegration
                 }
 
                 // We do this to prevent leaking a socket
-                fcntl(Convert.ToInt32(listenFd), F_SETFD, FD_CLOEXEC);
+                fcntl((int)listenHttpFd, F_SETFD, FD_CLOEXEC);
+                fcntl((int)listenHttpsFd, F_SETFD, FD_CLOEXEC);
+
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
