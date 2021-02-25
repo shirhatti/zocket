@@ -25,7 +25,7 @@ namespace Zocket
                     getDefaultValue: () => 9999,
                     description: "Port to bind to"),
                 new Option<int>(
-                    "--tls-port",
+                    "--https-port",
                     getDefaultValue: () => 10000),
                 new Argument<string>(
                     "command",
@@ -39,7 +39,7 @@ namespace Zocket
             return await rootCommand.InvokeAsync(args);
         }
 
-        private static async Task Listen(int port, int tlsPort, string command)
+        private static async Task Listen(int port, int httpsPort, string command)
         {
             using var cts = new CancellationTokenSource();
             Console.CancelKeyPress += delegate (object sender, ConsoleCancelEventArgs e)
@@ -57,7 +57,7 @@ namespace Zocket
             };
 
             using var httpListenSocket = SetupSocket(port);
-            using var httpsListenSocket = SetupSocket(tlsPort);
+            using var httpsListenSocket = SetupSocket(httpsPort);
 
             var currentAssembly = Assembly.GetExecutingAssembly().Location;
             var reloadIntegrationPath = Path.GetFullPath(Path.Combine(currentAssembly, "..", "ReloadIntegration.dll"));

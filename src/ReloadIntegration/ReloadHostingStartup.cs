@@ -15,7 +15,6 @@ namespace ReloadIntegration
 {
     public class ReloadHostingStartup : IHostingStartup
     {
-        internal const string AspNetHttpsOid = "1.3.6.1.4.1.311.84.1.1";
         public const string startupHookEnvironmentVariable = "DOTNET_STARTUP_HOOKS";
         public void Configure(IWebHostBuilder builder)
         {
